@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/styles.css">
+  <script>
+    // Show the button when the input is focused
+    function showButton() {
+      document.getElementById('post').style.display = 'block'; // Display the submit button
+    }
+
+    // Hide the button when clicking outside the input or button
+    document.addEventListener('click', function(event) {
+      const input = document.querySelector('input[name="city"]'); // Select the city input
+      const button = document.getElementById('post'); // Select the submit button
+      if (!input.contains(event.target) && !button.contains(event.target)) {
+        button.style.display = 'none'; // Hide the button if clicked outside
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="weatherData" data-weather='<%= JSON.stringify(weatherData) %>'></div> <!-- Weather data stored in a data attribute -->
+  <div class="backImg">
+    <div class="logo">
+      <!-- logo -->
+      <a href="/"><h1>Overcast</h1></a> <!-- Site title -->
+    </div>
+    <form class="form" method="POST" action="/postCords">
+      <input type="text" name="city" placeholder="City" onfocus="showButton()"> <!-- Input for city name -->
+      <button id="post" type="submit" value="POST">Submit</button> <!-- Submit button -->
+      <h3 id="cityName"><%= cityName %></h3> <!-- Display the city name -->
+    </form>
+  </div>
+
+  <div class="main-content">
+    <div class="content">
+      <div class="days">
+        <% weatherData.forEach(function(item) { %>
+          <div class="date">
+            <p></p>
+            <p><%= item.dt_txt.split(' ')[0].substring(5).replace('-', '/') %></p> <!-- Display date -->
+          </div>
+        <% }); %>
+      </div>
+      <div id="descriptionTitle" class="description-title"></div> <!-- Title for weather description -->
+      <div class="hours">
+        <!-- Hourly data will be dynamically inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Retrieve the weather data from the data attribute
+    const weatherDataElement = document.getElementById('weatherData'); // Get the weather data element
+    const weatherData = JSON.parse(weatherDataElement.getAttribute('data-weather')); // Parse the weather data
+
+    // Set the city name in the h2 element
+    // document.getElementById('cityName').innerText = weatherData.city.name; // Uncomment to set city name
+
+    // Function to get emoji based on weather description
+    function getEmoji(description) {
+      const emojiMap = {
+        "clear sky": "☀️",
+        "few clouds": "🌤️",
+        "scattered clouds": "☁️",
+        "broken clouds": "🌥️",
+        "shower rain": "🌧️",
+        "rain": "🌦️",
+        "thunderstorm": "⛈️",
+        "snow": "❄️",
+        "mist": "🌫️",
+        "overcast clouds": "☁️",
+        "light rain": "🌦️",
+        "moderate rain": "🌧️",
+        "heavy intensity rain": "🌧️",
+        "very heavy rain": "🌧️",
+        "extreme rain": "🌧️",
+        "freezing rain": "❄️",
+        "light snow": "🌨️",
+        "heavy snow": "❄️",
+        "sleet": "🌨️",
+        "shower sleet": "🌨️",
+        "light shower snow": "🌨️",
+        "shower snow": "🌨️",
+        "heavy shower snow": "❄️",
+        "fog": "🌫️",
+        "sand": "🏜️",
+        "dust": "🌪️",
+        "volcanic ash": "🌋",
+        "squalls": "💨",
+        "tornado": "🌪️"
+      };
+      return emojiMap[description] || "❓"; // Return emoji or question mark if not found
+    }
+
+    // Function to render unique dates from weather data
+    function renderDates() {
+      const daysContainer = document.querySelector('.days'); // Select the days container
+      daysContainer.innerHTML = ''; // Clear existing content
+
+      const uniqueDates = [...new Set(weatherData.map(item => item.dt_txt.split(' ')[0]))]; // Get unique dates
+
+      uniqueDates.forEach((date, index) => {
+        const filteredData = weatherData.filter(item => item.dt_txt.startsWith(date)); // Filter data for the date
+
+        // Count occurrences of each weather description
+        const descriptionCounts = {};
+        filteredData.forEach(item => {
+          const description = item.weather[0].description; // Get weather description
+          descriptionCounts[description] = (descriptionCounts[description] || 0) + 1; // Count descriptions
+        });
+
+        // Find the description with the highest count
+        let maxDescription = "";
+        let maxCount = 0;
+        for (const [description, count] of Object.entries(descriptionCounts)) {
+          if (count > maxCount) {
+            maxCount = count; // Update max count
+            maxDescription = description; // Update max description
+          }
+        }
+
+        const dateElement = document.createElement('div'); // Create date element
+        dateElement.className = 'date';
+        dateElement.innerHTML = `
+          <p>${getEmoji(maxDescription)}</p> <!-- Display emoji -->
+          <p>${date.substring(5).replace('-', '/')}</p> <!-- Display formatted date -->
+        `;
+        dateElement.onclick = () => {
+          // Remove 'selected' class from all date elements
+          document.querySelectorAll('.date').forEach(el => el.classList.remove('selected')); // Deselect all dates
+          // Add 'selected' class to the clicked date element
+          dateElement.classList.add('selected'); // Select the clicked date
+          renderHours(date); // Render hours for the selected date
+          updateDescriptionTitle(maxDescription); // Update description title
+        };
+        daysContainer.appendChild(dateElement); // Append date element to container
+
+        // Automatically render the first date's details and mark it as selected
+        if (index === 0) {
+          dateElement.classList.add('selected'); // Mark first date as selected
+          renderHours(date); // Render hours for the first date
+          updateDescriptionTitle(maxDescription); // Update description title for the first date
+        }
+      });
+    }
+
+    // Function to update the description title based on weather
+    function updateDescriptionTitle(maxDescription) {
+      const descriptionTitle = document.getElementById('descriptionTitle'); // Select description title element
+      descriptionTitle.innerHTML = `<h2>Mostly ${maxDescription} ${getEmoji(maxDescription)}</h2>`; // Update title
+    }
+
+    // Function to render hourly weather data
+    function renderHours(selectedDate) {
+      const hoursContainer = document.querySelector('.hours'); // Select hours container
+      hoursContainer.innerHTML = ''; // Clear existing content
+
+      const filteredData = weatherData.filter(item => item.dt_txt.startsWith(selectedDate)); // Filter data for the selected date
+
+      // Check the weather description of the first hour card
+      if (filteredData.length > 0) {
+        const firstHourWeather = filteredData[0].weather[0].description; // Get first hour's weather description
+        const backImg = document.querySelector('.backImg'); // Select background image container
+
+        // Set the background image based on the first hour's weather description
+        if (firstHourWeather.includes("clear") || firstHourWeather.includes("sunny")) {
+          backImg.style.backgroundImage = "url('images/sunny.webp')"; // Set sunny background
+        } else if (firstHourWeather.includes("rain") || firstHourWeather.includes("shower")) {
+          backImg.style.backgroundImage = "url('images/rainy.webp')"; // Set rainy background
+        } else if (firstHourWeather.includes("cloud")) {
+          backImg.style.backgroundImage = "url('images/clouds.webp')"; // Set cloudy background
+        }
+      }
+
+      filteredData.forEach(item => {
+        const celsiusTemp = Math.round(item.main.temp - 273.15); // Convert temperature to Celsius
+        const hourElement = document.createElement('div'); // Create hour element
+        hourElement.className = 'hourCard';
+        hourElement.innerHTML = `
+          <p>${getEmoji(item.weather[0].description)}</p> <!-- Display emoji -->
+          <p>${item.dt_txt.split(' ')[1].substring(0, 5)}</p> <!-- Display time -->
+          <p>${celsiusTemp}°C</p> <!-- Display temperature -->
+        `;
+        hoursContainer.appendChild(hourElement); // Append hour element to container
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', renderDates); // Render dates when DOM is fully loaded
+  </script>
+</body>
+</html>
+
